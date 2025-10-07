@@ -4,9 +4,22 @@ import webbrowser
 import os
 import threading
 import time
+import socket
 
 # Configuration
 PORT = 1979
+
+def get_local_ip():
+    """Get the local IP address of the machine"""
+    try:
+        # Create a socket connection to get the local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Connect to Google's DNS
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 def start_server():
     """Start the HTTP server"""
@@ -24,13 +37,21 @@ def start_server():
     # Change to the script's directory so the server serves files from there
     os.chdir(script_dir)
     
+    # Get local IP
+    local_ip = get_local_ip()
+    
+    # Print the IP address clearly
+    print(f"IP Address: {local_ip}")
+    
     # Create a simple HTTP request handler
     handler = http.server.SimpleHTTPRequestHandler
     
     try:
-        # Create the server
-        with socketserver.TCPServer(("", PORT), handler) as httpd:
-            print(f"Server started at http://localhost:{PORT}")
+        # Create the server - bind to all interfaces (0.0.0.0) so it's accessible externally
+        with socketserver.TCPServer(("0.0.0.0", PORT), handler) as httpd:
+            print(f"Server started!")
+            print(f"Local access: http://localhost:{PORT}")
+            print(f"Local network access: http://{local_ip}:{PORT}")
             print(f"Serving files from: {script_dir}")
             print("Press Ctrl+C to stop the server")
             
@@ -49,8 +70,9 @@ def start_server():
         return True
 
 def open_browser():
-    """Open the browser after a short delay"""
+    """Open the browser after a short delay using localhost"""
     time.sleep(1)  # Wait for server to start
+    # Use localhost for browser opening (more reliable for local development)
     webbrowser.open(f"http://localhost:{PORT}/index.html")
 
 if __name__ == "__main__":
