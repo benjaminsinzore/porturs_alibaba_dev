@@ -21,4 +21,4 @@ async def read_root(request: Request):
 
 # Run the server when script is executed directly
 if __name__ == "__main__":
-    uvicorn.run(app, host="120.27.122.39", port=1979)
+    uvicorn.run(app, host="0.0.0.0", port=1979)
