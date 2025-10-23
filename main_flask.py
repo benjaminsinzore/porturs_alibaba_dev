@@ -1,24 +1,26 @@
-# main.py
+# main_flask.py
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-import uvicorn
+import os
+import signal
 
-# Initialize FastAPI app
 app = FastAPI()
-
-# Set up templates (for HTML files)
 templates = Jinja2Templates(directory="templates")
 
-# Optional: Serve static files (CSS, JS, images) from a 'static' folder
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Route to serve index.html at the root path
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
+@app.get("/")
+async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Run the server when script is executed directly
+# Graceful shutdown handler (optional)
+def signal_handler(signum, frame):
+    print("\nShutting down gracefully...")
+    os._exit(0)
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=1979)
+    # Register signal handler for clean exit (works with kill)
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    uvicorn.run(app, host="0.0.0.0", port=1979, log_level="info")
