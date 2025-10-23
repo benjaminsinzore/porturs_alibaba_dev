@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player with Waveform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .audio-card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .card-title {
+            color: #333;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .waveform-container {
+            height: 80px;
+            margin: 24px 0;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .waveform {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            height: 100%;
+            gap: 2px;
+            padding: 0 16px;
+        }
+
+        .wave-bar {
+            width: 4px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 2px 2px 0 0;
+            transition: height 0.1s ease;
+        }
+
+        .progress-tracker {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            margin: 20px 0;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .progress-filled {
+            height: 100%;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        .progress-handle {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            left: 0%;
+            transition: left 0.1s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .play-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .play-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+        }
+
+        .play-button:active {
+            transform: scale(0.95);
+        }
+
+        .progress-text {
+            color: #666;
+            font-size: 14px;
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 300px;
+            margin: 12px auto 0;
+        }
+
+        /* Animation for playing state */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .playing .play-button {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="audio-card">
+        <h2 class="card-title">Music Player</h2>
+        <div class="waveform-container">
+            <div class="waveform" id="waveform"></div>
+        </div>
+        
+        <div class="progress-tracker" id="progressTracker">
+            <div class="progress-filled" id="progressFilled"></div>
+            <div class="progress-handle" id="progressHandle"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="play-button" id="playButton">▶</button>
+        </div>
+        <div class="progress-text">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+        </div>
+    </div>
+
+    <script>
+        // Create waveform bars
+        const waveformContainer = document.getElementById('waveform');
+        const numBars = 50;
+        
+        for (let i = 0; i < numBars; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'wave-bar';
+            bar.style.height = Math.random() * 40 + 20 + 'px';
+            waveformContainer.appendChild(bar);
+        }
+
+        // Audio setup
+        const audio = new Audio();
+        // Using a sample audio URL - replace with your own audio file
+        audio.src = '/test_audio.mp3';
+        
+        const playButton = document.getElementById('playButton');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const progressTracker = document.getElementById('progressTracker');
+        const progressFilled = document.getElementById('progressFilled');
+        const progressHandle = document.getElementById('progressHandle');
+        const audioCard = document.querySelector('.audio-card');
+        const waveBars = document.querySelectorAll('.wave-bar');
+
+        let isPlaying = false;
+        let isSeeking = false;
+
+        // Format time function
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Update progress
+        function updateProgress() {
+            if (audio.duration && !isSeeking) {
+                const currentTime = audio.currentTime;
+                const duration = audio.duration;
+                const progressPercent = (currentTime / duration) * 100;
+                
+                currentTimeEl.textContent = formatTime(currentTime);
+                progressFilled.style.width = `${progressPercent}%`;
+                progressHandle.style.left = `${progressPercent}%`;
+                
+                // Animate waveform bars only when playing
+                if (isPlaying) {
+                    animateWaveform();
+                }
+            }
+        }
+
+        // Animate waveform bars
+        function animateWaveform() {
+            waveBars.forEach(bar => {
+                const randomHeight = Math.random() * 60 + 10;
+                bar.style.height = randomHeight + 'px';
+            });
+        }
+
+        // Play/Pause toggle
+        playButton.addEventListener('click', () => {
+            if (isPlaying) {
+                audio.pause();
+                playButton.textContent = '▶';
+                audioCard.classList.remove('playing');
+            } else {
+                audio.play();
+                playButton.textContent = '⏸';
+                audioCard.classList.add('playing');
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // Progress tracker click handling
+        progressTracker.addEventListener('click', (e) => {
+            const rect = progressTracker.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const width = rect.width;
+            const clickPercent = (clickX / width) * 100;
+            
+            if (audio.duration) {
+                audio.currentTime = (clickPercent / 100) * audio.duration;
+                progressFilled.style.width = `${clickPercent}%`;
+                progressHandle.style.left = `${clickPercent}%`;
+            }
+        });
+
+        // Mouse down on progress tracker
+        progressTracker.addEventListener('mousedown', () => {
+            isSeeking = true;
+        });
+
+        // Mouse up anywhere (to handle seeking completion)
+        document.addEventListener('mouseup', () => {
+            isSeeking = false;
+        });
+
+        // Audio events
+        audio.addEventListener('timeupdate', updateProgress);
+        audio.addEventListener('ended', () => {
+            playButton.textContent = '▶';
+            audioCard.classList.remove('playing');
+            isPlaying = false;
+            currentTimeEl.textContent = '0:00';
+            progressFilled.style.width = '0%';
+            progressHandle.style.left = '0%';
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            totalTimeEl.textContent = formatTime(audio.duration);
+        });
+
+        // Handle errors
+        audio.addEventListener('error', () => {
+            currentTimeEl.textContent = 'Error';
+            totalTimeEl.textContent = 'loading';
+            playButton.disabled = true;
+        });
+
+        // Initialize
+        totalTimeEl.textContent = '0:00';
+    </script>
+</body>
+</html>
